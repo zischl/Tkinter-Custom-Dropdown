@@ -6,11 +6,11 @@ import threading
 
 class addCustomDropdown(ctk.CTkToplevel):
     def __init__(self, master, width=None, height=200, corner_radius=10, 
-                 border_width=0, border_color="white", values = (), 
+                 border_width=2, border_color="#8800FF", values = (), 
                  fg_color="#181818", text_color='gray', hover_color="#383838", hover_text_color="white", 
-                 command=None, anchor='left', hideScrollBar=False,
+                 command=None, anchor='left', hideScrollBar=False, scrollpadx=(0,3), scrollpady=(0,0),
                  font=("Arial", 11, 'bold'), option_outline=0, option_border_color='', option_bg_color='', option_rounded_corners=25,
-                 option_spacing=10, padx=(0,0), pady=(0,0), ipadx=10, ipady=10, **kwargs):
+                 option_spacing=10, padx=(3,3), pady=(0,0), ipadx=10, ipady=10, **kwargs):
         super().__init__(master)
         self.configure(fg_color="#4a412a", corner_radius=corner_radius)
         self.wm_overrideredirect(True)
@@ -31,7 +31,7 @@ class addCustomDropdown(ctk.CTkToplevel):
         self.items = {}
         self.itemLookup = defaultdict(list)
         self.command = command
-        self.padx, self.ipadx, self.pady, self.ipady ,self.optionSpacing = padx, ipadx, pady, ipady, option_spacing
+        self.padx, self.ipadx, self.pady, self.ipady ,self.optionSpacing, self.scrollpadx, self.scrollpady = padx, ipadx, pady, ipady, option_spacing, scrollpadx, scrollpady
         self.hoverItem = 0
         self.hoverItemFrame = None
         self.borderWidth = border_width
@@ -53,11 +53,13 @@ class addCustomDropdown(ctk.CTkToplevel):
         
         if not hideScrollBar:
             self.scrollbar = ctk.CTkScrollbar(self.mainFrame, fg_color=fg_color, height=self.height)
-            self.scrollbar.grid(row=0, column=0, sticky='nes', pady=(max(7, border_width)+self.pady[0],max(7, border_width)+self.pady[1]), padx=(0, border_width))
+            self.scrollbar.grid(row=0, column=0, sticky='nes', pady=(max(7, border_width)+self.pady[0]+self.scrollpady[0], max(7, border_width)+self.pady[1]+self.scrollpady[1]),
+                                padx=(0+self.scrollpadx[0], border_width+self.scrollpadx[1]))
         self.scrollbarWidth = self.scrollbar.winfo_reqwidth() if not hideScrollBar else 0
         
         self.mainCanvas = tk.Canvas(self.mainFrame, height=self.height, bg=self.fg, highlightbackground=self.fg)
-        self.mainCanvas.grid(row=0, column=0, sticky='nwse', pady=(max(7, border_width)+self.pady[0],max(7, border_width)+self.pady[1]), padx=(border_width+self.padx[0], border_width+self.scrollbarWidth+self.padx[1]))        
+        self.mainCanvas.grid(row=0, column=0, sticky='nwse', pady=(max(7, border_width)+self.pady[0],max(7, border_width)+self.pady[1]),
+                             padx=(border_width+self.padx[0], border_width+self.scrollbarWidth+self.padx[1]))        
         self.mainCanvas.update()
         if not hideScrollBar:
             self.scrollbar.configure(command=self.mainCanvas.yview)
@@ -168,9 +170,9 @@ class addCustomDropdown(ctk.CTkToplevel):
     def onClick(self, event):
         self.master.set(self.mainCanvas.itemcget(self.hoverItem, 'text'))
     
-app = ctk.CTk()
-dropdown = ctk.CTkComboBox(app, values=[f'bleh{_}' for _ in range(30000)], command=lambda: print('grg'))
-dropdown.pack()
+# app = ctk.CTk()
+# dropdown = ctk.CTkComboBox(app, values=[f'bleh{_}' for _ in range(30000)], command=lambda: print('grg'))
+# dropdown.pack()
 
-addCustomDropdown(dropdown)
-app.mainloop()
+# addCustomDropdown(dropdown)
+# app.mainloop()

@@ -1,14 +1,16 @@
+import concurrent.futures
 import customtkinter as ctk
 import tkinter as tk
 import platform 
 from collections import defaultdict 
-import threading
+import threading, concurrent
+import time
 
 class addCustomDropdown(ctk.CTkToplevel):
     def __init__(self, master, width=None, height=200, corner_radius=10, 
                  border_width=2, border_color="#8800FF", values = (), 
                  fg_color="#181818", text_color='gray', hover_color="#383838", hover_text_color="white", 
-                 command=None, anchor='center', hideScrollBar=False, scrollpadx=(0,3), scrollpady=(0,0),
+                 command=None, anchor='center', hideScrollBar=False, scrollpadx=(0,3), scrollpady=(0,0), enableSearch = False,
                  font=("Arial", 11, 'bold'), option_outline=0, option_border_color='', option_bg_color='', option_rounded_corners=25,
                  option_spacing=10, padx=(3,5), pady=(0,0), ipadx=10, ipady=10, **kwargs):
         super().__init__(master)
@@ -32,8 +34,8 @@ class addCustomDropdown(ctk.CTkToplevel):
         self.itemLookup = defaultdict(list)
         self.command = command
         self.padx, self.ipadx, self.pady, self.ipady ,self.optionSpacing, self.scrollpadx, self.scrollpady = padx, ipadx, pady, ipady, option_spacing, scrollpadx, scrollpady
-        self.hoverItem = 0
-        self.hoverItemFrame = None
+        self.hoverItem = (0,)
+        self.hoverItemFrame = 1
         self.borderWidth = border_width
         self.borderColor = border_color
         self.fg = fg_color
@@ -72,6 +74,7 @@ class addCustomDropdown(ctk.CTkToplevel):
         
         self.mainCanvas.bind("<Motion>", self.onHover)
         self.mainCanvas.bind("<MouseWheel>" ,self.mouseScroller)
+        
         self.mainCanvas.bind("<Button-1>", self.onClick)
         
         if values:
@@ -84,7 +87,16 @@ class addCustomDropdown(ctk.CTkToplevel):
             self.setMasterValue(master._values[0])
             
         self.setGetter()
-        master.bind("<KeyRelease>", self.search)
+        self._getRoot()
+        if enableSearch: master.bind("<KeyRelease>", self.search)
+        self.root.bind("<Configure>", self._positionManager)
+        
+    def _getRoot(self, master=None):
+        if not hasattr(master, 'geometry'):
+            self._getRoot(self.master.master)
+        else:
+            self.root = master
+        
         
     def setGetter(self):
         if hasattr(self.master, 'get'):
@@ -117,38 +129,32 @@ class addCustomDropdown(ctk.CTkToplevel):
             
     def addThreaded(self, values):
         threading.Thread(target=self.multiAdd, kwargs={'values':values}, daemon=True).start()
+
         
     def multiAdd(self, values):
         for item in values:
             self.add(option=item)
-        print('done')
+        
 
     def open(self, *args):
         self.geometry(f"{self.master.cget('width')}x{300}+{self.master.winfo_rootx()}+{self.master.winfo_height()+self.master.winfo_rooty()}")
-        self.deiconify() if self.state() == 'withdrawn' else self.withdraw()
+        if self.state() == 'withdrawn': 
+            self.deiconify() 
+            self.focus_force()
+            self.bind("<KeyPress>", self.keyScroller)
+        else:
+            self.withdraw()
+            self.unbind("<KeyPress>")
+        
     
     def createRoundedRectangle(self, x1, y1, x2, y2, **kwargs):
         radius = self.option_rounded_corners
-        points = [x1+radius, y1,
-                x1+radius, y1,
-                x2-radius, y1,
-                x2-radius, y1,
-                x2, y1,
-                x2, y1+radius,
-                x2, y1+radius,
-                x2, y2-radius,
-                x2, y2-radius,
-                x2, y2,
-                x2-radius, y2,
-                x2-radius, y2,
-                x1+radius, y2,
-                x1+radius, y2,
-                x1, y2,
-                x1, y2-radius,
-                x1, y2-radius,
-                x1, y1+radius,
-                x1, y1+radius,
-                x1, y1]
+        points = [
+                x1+radius, y1,x1+radius, y1, x2-radius, y1, x2-radius, y1, x2, y1,
+                x2, y1+radius, x2, y1+radius, x2, y2-radius, x2, y2-radius, x2, y2,
+                x2-radius, y2, x2-radius, y2, x1+radius, y2, x1+radius, y2, x1, y2,
+                x1, y2-radius, x1, y2-radius, x1, y1+radius, x1, y1+radius, x1, y1
+                ]
 
         return self.mainCanvas.create_polygon(points, **kwargs, smooth=True)
     
@@ -180,16 +186,32 @@ class addCustomDropdown(ctk.CTkToplevel):
             item = {'option':option, 'optionFrame':self.mainCanvas.find_above(option)}[tag]
 
             frame = self.mainCanvas.find_below(item)
-            self.mainCanvas.itemconfigure(item, fill=self.hoverTextColor)
-            self.mainCanvas.itemconfigure(frame, fill=self.hoverColor)
             if self.hoverItem !=  item:
                     self.mainCanvas.itemconfig(self.hoverItem, fill=self.textColor)
                     self.mainCanvas.itemconfig(self.mainCanvas.find_below(self.hoverItem), fill=self.option_bg_color)
+            self.mainCanvas.itemconfigure(item, fill=self.hoverTextColor)
+            self.mainCanvas.itemconfigure(frame, fill=self.hoverColor)
             self.hoverItem = item
             self.hoverItemFrame = frame
+
             
     def mouseScroller(self, event):
         self.mainCanvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+    def keyScroller(self, event):
+        print(1+self.hoverItem[0]//2)
+        self.mainCanvas.itemconfigure(self.hoverItem, fill=self.textColor)
+        self.mainCanvas.itemconfigure(self.hoverItemFrame, fill=self.option_bg_color)
+        if event.keysym == 'Up':
+            self.hoverItem = (max(2, self.hoverItem[0]-2),)
+            self.hoverItemFrame = self.mainCanvas.find_below(self.hoverItem)
+        elif event.keysym == 'Down':
+            self.hoverItem = (self.items.get(self.hoverItem[0]//2, 2),)
+            self.hoverItemFrame = self.mainCanvas.find_below(self.hoverItem)
+            
+        self.mainCanvas.itemconfigure(self.hoverItem, fill=self.hoverTextColor)
+        self.mainCanvas.itemconfigure(self.hoverItemFrame, fill=self.hoverColor)
+        self.mainCanvas.yview_moveto((self.mainCanvas.bbox(self.hoverItemFrame)[1]-self.ipady)/self.mainCanvas.bbox('all')[3])
 
     def onClick(self, event):
         self.setMasterValue(self.mainCanvas.itemcget(self.hoverItem, 'text'))
@@ -233,24 +255,27 @@ class addCustomDropdown(ctk.CTkToplevel):
             self.multiEdit([item for item in list(self.itemLookup.keys())[:self.editCount+1]])
             
             self.need_redraw = False
+            
+    def _positionManager(self, event):
+        self.geometry(f"{self.master.cget('width')}x{300}+{self.master.winfo_rootx()}+{self.master.winfo_height()+self.master.winfo_rooty()}")
         
         
         
-# import random
-# import string
+import random
+import string
 
-# def generate_test_data(count=30000, length_range=(5, 15)):
-#     data = []
-#     for _ in range(count):
-#         length = random.randint(*length_range)
-#         word = ''.join(random.choices(string.ascii_letters, k=length))
-#         data.append(word)
-#     return data
+def generate_test_data(count=30000, length_range=(5, 15)):
+    data = []
+    for _ in range(count):
+        length = random.randint(*length_range)
+        word = ''.join(random.choices(string.ascii_letters, k=length))
+        data.append(word)
+    return data
 
-# app = ctk.CTk()
-# names = generate_test_data()
-# dropdown = ctk.CTkComboBox(app)
-# dropdown.pack()
+app = ctk.CTk()
+names = generate_test_data()
+dropdown = ctk.CTkComboBox(app)
+dropdown.pack()
 
-# addCustomDropdown(dropdown, values=names)
-# app.mainloop()
+addCustomDropdown(dropdown, values=names)
+app.mainloop()

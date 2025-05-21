@@ -261,21 +261,4 @@ class addCustomDropdown(ctk.CTkToplevel):
         
         
         
-import random
-import string
 
-def generate_test_data(count=30000, length_range=(5, 15)):
-    data = []
-    for _ in range(count):
-        length = random.randint(*length_range)
-        word = ''.join(random.choices(string.ascii_letters, k=length))
-        data.append(word)
-    return data
-
-app = ctk.CTk()
-names = generate_test_data()
-dropdown = ctk.CTkComboBox(app)
-dropdown.pack()
-
-addCustomDropdown(dropdown, values=names)
-app.mainloop()
